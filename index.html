@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html id="html" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminal</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            height: 100vh;
+            width: 100vw;
+            margin: 0;
+            background-color: black;
+            color: green;
+            overflow-wrap: break-word;
+            overflow-x: hidden;
+            font-size: larger;
+        }
+
+        #terminal {
+            width: 100%;
+            white-space: pre-wrap;
+        }
+
+        #input {
+            outline: none;
+            border: none;
+            width: 100%;
+            font-family: 'Courier New', monospace;
+            background-color: black;
+            color: blue;
+            margin: 0;
+            font-size: larger;
+        }
+    </style>
+</head>
+
+<body onclick="document.getElementById('input').focus();">
+    <div id="terminal"></div>
+    <input id="input" type="text" autofocus onkeydown="handleInput(event)">
+    <script type="module" src="./script.js"></script>
+    <script>
+        function sleep(ms) {
+            return new Promise(
+                resolve => setTimeout(resolve, ms)
+            );
+        }
+        function inputsay(text) {
+            text = "<b style='color:blue;'>" + text + "</b>"
+            document.getElementById('terminal').innerHTML += text + '\n';
+            document.getElementById('input').value = '';
+        }
+        function say(text) {
+            document.getElementById('terminal').innerHTML += text + '\n';
+            document.getElementById('input').value = '';
+        }
+        function handleInput(event) {
+            if (event.key === 'Enter') {
+                const inputElement = document.getElementById('input');
+                const command = inputElement.value.trim();
+                inputsay(command);
+                if (isValidURL(command)) {
+                    window.location.href = command;
+                } else {
+                    GenerateResponse(command);
+                }
+            }
+        }
+        function isValidURL(url) {
+            try {
+                new URL(url);
+                return true;
+            } catch (error) {
+                return false;
+            }
+        }
+        say('Mukumi Chat v1.0 (very experimental). \nUsing Qwen2 0.5b, via LLM.js. \nBy 76836.\nThis chat is ephemeral.')
+    </script>
+</body>
+</html>
