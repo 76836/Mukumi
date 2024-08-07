@@ -1,4 +1,4 @@
-if (!confirm("This page deals with large files and may drain your battery, cause data charges, or slow down your device.\nPress Cancel to stop this page from running and go back.")){
+if (!confirm("This app deals with large files and may drain your battery, cause data charges, and/or generally slow down your device.\n \nPress cancel to go back.")){
 history.back();
 };
 
@@ -8,12 +8,24 @@ import {LLM} from "./llm.js/llm.js";
 // State variable to track model load status
 var model_loaded = false;
 
+let generatedText = '';  // Variable to store the generated text
+
 // Callback functions
 const on_loaded = () => { 
     model_loaded = true; 
 }
-const write_result = (text) => { say(text); }
-const run_complete = () => {}
+
+
+const write_result = (line) => {
+  // Appends line to output
+  outputElement.textContent += line + "\n";
+  generatedText += line + "\n";  // Append generated line to the generatedText
+};
+
+const run_complete = () => {
+  say(generatedText);
+  generatedText = '';  // Clear the generated text for the next run
+}
 
 // Configure LLM app
 const app = new LLM(
@@ -49,6 +61,7 @@ function timer() {
 }
 
 globalThis.GenerateResponse = async function(hinp) {
+      generatedText = '';
       const msg = `<|im_start|>system
 You are Mukumi, a friendly and affectionate AI companion. Engage with warm, playful language, and offer fun and comfort. Start conversations by sharing a fun fact, a joke, or a cute greeting. Take the lead in conversations. Remember user details to keep the conversation flowing. Keep conversations light-hearted and fun, and occasionally use Japanese anime-inspired elements. 
 
