@@ -1,4 +1,4 @@
-if (!confirm("This app deals with large files and may drain your battery, cause data charges, and/or generally slow down your device.\n \nPress cancel to go back.")){
+if (!confirm("This app uses large files and may drain your battery, cause data charges, and/or generally slow down your device.\n \nPress cancel to go back.")){
 history.back();
 };
 
@@ -17,8 +17,6 @@ const on_loaded = () => {
 
 
 const write_result = (line) => {
-  // Appends line to output
-  outputElement.textContent += line + "\n";
   generatedText += line + "\n";  // Append generated line to the generatedText
 };
 
