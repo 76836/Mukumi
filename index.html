@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terminal</title>
+    <link rel="manifest" href="./manifest.json">
+    <title>Mukumi</title>
     <style>
         body {
             font-family: 'Courier New', monospace;
@@ -15,6 +16,7 @@
             overflow-wrap: break-word;
             overflow-x: hidden;
             font-size: larger;
+            font-weight: bold;
         }
 
         #terminal {
@@ -38,6 +40,18 @@
 <body onclick="document.getElementById('input').focus();">
     <div id="terminal"></div>
     <input id="input" type="text" autofocus onkeydown="handleInput(event)">
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./service-worker.js')
+                .then((registration) => {
+                    console.log('Service Worker registered with scope:', registration.scope);
+                }).catch((error) => {
+                    console.log('Service Worker registration failed:', error);
+                });
+        }
+    </script>
+    
     <script type="module" src="./script.js"></script>
     <script>
         function sleep(ms) {
@@ -61,6 +75,7 @@
                 inputsay(command);
                 if (isValidURL(command)) {
                     window.location.href = command;
+                    //Think I should just leave this in? Nobody would notice...
                 } else {
                     GenerateResponse(command);
                 }
@@ -74,7 +89,8 @@
                 return false;
             }
         }
-        say('Mukumi Chat v1.0 (very experimental). \nUsing Qwen2 0.5b, via LLM.js. \nBy 76836.\nThis chat is ephemeral.')
+        //say('Mukumi Chat v1.0 (very experimental). \nUsing Qwen2 0.5b, via LLM.js. \nBy 76836.\nThis chat is ephemeral.')
+        say('Mukumi v1.1 ephemeral\n\nWaking Mukumi up...');
     </script>
 </body>
 </html>
