@@ -1,4 +1,4 @@
-if (!confirm("This app uses large files and may drain your battery, cause data charges, and/or generally slow down your device.\n \nPress cancel to go back.")){
+if (!confirm("This app uses large files and may drain your battery, cause data charges, and/or slow down your device.\n \nPress cancel to go back.")){
 history.back();
 };
 
@@ -17,6 +17,10 @@ const on_loaded = () => {
 
 
 const write_result = (line) => {
+  if (line == `assistant`) {
+      generatedText = '';
+      say('Mukumi is typing');
+  };
   generatedText += line + "\n";  // Append generated line to the generatedText
 };
 
