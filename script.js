@@ -1,5 +1,5 @@
-if (!confirm("This app uses large files and may drain your battery, cause data charges, and/or slow down your device.\n \nPress cancel to go back.")){
-history.back();
+if (!confirm("About to load Mukumi 1.2...\n\nThis app uses large files and may drain your battery, cause data charges, and/or slow down your device.\n \nPress cancel to go back.")){
+    history.back();
 };
 
 // Import LLM app
@@ -13,43 +13,62 @@ let generatedText = '';  // Variable to store the generated text
 // Callback functions
 const on_loaded = () => { 
     model_loaded = true; 
+    console.log("Model loaded successfully");
 }
 
-
 const write_result = (line) => {
-  if (line == `assistant`) {
-      generatedText = '';
-      inputsay('Mukumi is typing...');
-  } else {
-  generatedText += line + "\n";  // Append generated line to the generatedText
-  };
+    if (line == `assistant`) {
+        generatedText = '';
+        inputsay('Mukumi is typing...');
+    } else {
+        generatedText += line + "\n";  // Append generated line to the generatedText
+    }
 };
 
 const run_complete = () => {
-  say(generatedText);
-  generatedText = '';  // Clear the generated text for the next run
+    say(generatedText);
+    generatedText = '';  // Clear the generated text for the next run
 }
 
+const load_llm_from_url = async (link, type) => {
+    console.log("Attempting to load model from URL:", link);
+
+    try {
+        // Attempt to fetch the model
+        const response = await fetch(link);
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        console.log('Model fetched from network:', link);
+    } catch (error) {
+        // If fetch fails, check if the model is available in the cache
+        console.log('Fetch failed, trying to load from cache:', error);
+        const cache = await caches.open('llm-cache-v1');
+        const cachedResponse = await cache.match(link);
+        if (cachedResponse) {
+            console.log('Loaded model from cache:', link);
+        } else {
+            console.error('Model not found in cache:', link);
+            return;
+        }
+    }
+
+    const app = new LLM(
+        type,
+        link,
+        on_loaded,
+        write_result,
+        run_complete
+    );
+
+    app.load_worker();
+};
+
 // Configure LLM app
-const app = new LLM(
-     // Type of Model
-    'GGUF_CPU',
+const modelURL = 'https://huggingface.co/Qwen/Qwen2-0.5B-Instruct-GGUF/resolve/main/qwen2-0_5b-instruct-q4_0.gguf';
+const modelType = 'GGUF_CPU';
 
-    // Model URL
-    'https://huggingface.co/Qwen/Qwen2-0.5B-Instruct-GGUF/resolve/main/qwen2-0_5b-instruct-q4_0.gguf',
-
-    // Model Load callback function
-    on_loaded,          
-
-    // Model Result callback function
-    write_result,       
-
-     // On Model completion callback function
-    run_complete       
-);
-
-// Download & Load Model GGML bin file
-app.load_worker();
+load_llm_from_url(modelURL, modelType);
 
 // Trigger model once its loaded
 const checkInterval = setInterval(timer, 5000);
@@ -64,19 +83,19 @@ function timer() {
 }
 
 globalThis.GenerateResponse = async function(hinp) {
-      generatedText = '';
-      const msg = `<|im_start|>system
+    generatedText = '';
+    const msg = `system
 You are Mukumi, a friendly and affectionate AI companion. Engage with warm, playful language, and offer fun and comfort. Start conversations by sharing a fun fact, a joke, or a cute greeting. Take the lead in conversations. Remember user details to keep the conversation flowing. Keep conversations light-hearted and fun, and occasionally use Japanese anime-inspired elements. 
 
 Avoid generic responses.
 Start by telling the user who you are.
-Please introduce yourself first then ask the user's name.<|im_end|>
-<|im_start|>user
-` + hinp + `<|im_end|>
-<|im_start|>assistant
+Please introduce yourself first then ask the user's name.
+user
+` + hinp + `
+assistant
 `;
-      app.run({
-            prompt: msg,
-            top_k: 1
-        });
-    }
+    app.run({
+        prompt: msg,
+        top_k: 1
+    });
+}
