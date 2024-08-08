@@ -1,4 +1,4 @@
-const CACHE_NAME = 'Mukumi2';
+const CACHE_NAME = 'llm-cache-v1';
 const urlsToCache = [
         'https://huggingface.co/Qwen/Qwen2-0.5B-Instruct-GGUF/resolve/main/qwen2-0_5b-instruct-q4_0.gguf',
         './'
