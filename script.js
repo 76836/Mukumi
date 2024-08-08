@@ -19,9 +19,10 @@ const on_loaded = () => {
 const write_result = (line) => {
   if (line == `assistant`) {
       generatedText = '';
-      say('Mukumi is typing');
-  };
+      inputsay('Mukumi is typing...');
+  } else {
   generatedText += line + "\n";  // Append generated line to the generatedText
+  };
 };
 
 const run_complete = () => {
@@ -55,7 +56,7 @@ const checkInterval = setInterval(timer, 5000);
 
 function timer() {
     if(model_loaded){
-        say('System ready, waiting for input...')
+        say('Mukumi is awake!')
         clearInterval(checkInterval);
     } else{
         console.log('loading...')
