@@ -1,5 +1,6 @@
-const CACHE_NAME = 'Mukumi1';
+const CACHE_NAME = 'Mukumi2';
 const urlsToCache = [
+        'https://huggingface.co/Qwen/Qwen2-0.5B-Instruct-GGUF/resolve/main/qwen2-0_5b-instruct-q4_0.gguf',
         './'
 ];
 
