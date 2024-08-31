@@ -1,17 +1,10 @@
-// flashback to this comment:
-// got tired so asked ChatGPT to do all the debugging. i'll see later if that was a good idea.
-// ...
-// it was not a good idea
-
-if (!confirm("About to load Mukumi 1.2c...\n\nThis app uses large files and may drain your battery, cause data charges, and/or slow down your device.\n \nPress cancel to go back.")){
+//I'm bored so I'm restoring old code on my phone, maybe I was onto something?
+if (!confirm("Mukumi v5 (waffles)\n\nThis program uses large files, press cancel if you are on a metered internet connection.")){
     history.back();
 };
 
-// is it normal that I commit every single revision of my script straight to pages?
-// i dont really think there is a better way to test it...
-
 // Import LLM app
-import { LLM } from "./llm.js/llm.js";
+import {LLM} from "./llm.js/llm.js";
 
 // State variable to track model load status
 var model_loaded = false;
@@ -19,22 +12,10 @@ var model_loaded = false;
 let generatedText = '';  // Variable to store the generated text
 
 // Callback functions
-const on_loaded = () => {
-    model_loaded = true;
+const on_loaded = () => { 
+    model_loaded = true; 
+    console.log("Model loaded successfully");
 }
-
-// Function to check if the model URL is cached
-async function is_model_cached(url) {
-    try {
-        const cache = await caches.open('Mukumi3');
-        const cachedResponse = await cache.match(url);
-        return cachedResponse ? true : false;
-    } catch (error) {
-        console.error('Error checking cache:', error);
-        return false;
-    }
-}
-
 
 const write_result = (line) => {
     if (line == `assistant`) {
@@ -42,7 +23,7 @@ const write_result = (line) => {
         inputsay('Mukumi is typing...');
     } else {
         generatedText += line + "\n";  // Append generated line to the generatedText
-    };
+    }
 };
 
 const run_complete = () => {
@@ -50,64 +31,71 @@ const run_complete = () => {
     generatedText = '';  // Clear the generated text for the next run
 }
 
+const load_llm_from_url = async (link, type) => {
+    console.log("Attempting to load model from URL:", link);
 
-const modelURL = 'https://huggingface.co/Qwen/Qwen2-0.5B-Instruct-GGUF/resolve/main/qwen2-0_5b-instruct-q4_0.gguf';
-
-// Check if the model is cached and then load it
-is_model_cached(modelURL).then((modelCached) => {
-    if (modelCached) {
-        console.log('Model is cached and will be loaded offline');
-    } else {
-        console.log('Model is not cached, fetching from network');
+    try {
+        // Attempt to fetch the model
+        const response = await fetch(link);
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        console.log('Model fetched from network:', link);
+        alert('Running online.');
+    } catch (error) {
+        // If fetch fails, check if the model is available in the cache
+        console.log('Fetch failed, trying to load from cache:', error);
+        const cache = await caches.open('llm-cache-v1');
+        const cachedResponse = await cache.match(link);
+        if (cachedResponse) {
+            console.log('Loaded model from cache:', link);
+            alert('Running offline.');
+        } else {
+            console.error('Model not found in cache:', link);
+            return;
+        }
     }
 
-
-
-    // Configure LLM app
-    var app = new LLM(
-        // Type of Model
-        'GGUF_CPU',
-
-        // Model URL
-        modelURL,
-
-        // Model Load callback function
+    const app = new LLM(
+        type,
+        link,
         on_loaded,
-
-        // Model Result callback function
         write_result,
-
-        // On Model completion callback function
         run_complete
     );
 
-    // Download & Load Model GGML bin file
     app.load_worker();
-});
+};
+
+// Configure LLM app
+const modelURL = 'https://huggingface.co/Qwen/Qwen2-0.5B-Instruct-GGUF/resolve/main/qwen2-0_5b-instruct-q4_0.gguf';
+const modelType = 'GGUF_CPU';
+
+load_llm_from_url(modelURL, modelType);
 
 // Trigger model once its loaded
 const checkInterval = setInterval(timer, 5000);
 
 function timer() {
-    if (model_loaded) {
+    if(model_loaded){
         say('Mukumi is awake!')
         clearInterval(checkInterval);
-    } else {
+    } else{
         console.log('loading...')
     }
 }
 
-globalThis.GenerateResponse = async function (hinp) {
+globalThis.GenerateResponse = async function(hinp) {
     generatedText = '';
-    const msg = `<|im_start|>system
+    const msg = `system
 You are Mukumi, a friendly and affectionate AI companion. Engage with warm, playful language, and offer fun and comfort. Start conversations by sharing a fun fact, a joke, or a cute greeting. Take the lead in conversations. Remember user details to keep the conversation flowing. Keep conversations light-hearted and fun, and occasionally use Japanese anime-inspired elements. 
 
 Avoid generic responses.
 Start by telling the user who you are.
-Please introduce yourself first then ask the user's name.<|im_end|>
-<|im_start|>user
-` + hinp + `<|im_end|>
-<|im_start|>assistant
+Please introduce yourself first then ask the user's name.
+user
+` + hinp + `
+assistant
 `;
     app.run({
         prompt: msg,
