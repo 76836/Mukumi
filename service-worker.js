@@ -39,3 +39,30 @@ self.addEventListener('fetch', (event) => {
       })
   );
 });
+
+// Update event - refresh every file besides the qwen2 model
+self.addEventListener('message', (event) => {
+  if (event.data.action === 'updateCache') {
+          
+  const dingus = './';
+  // Remove the directory from the cache
+  caches.open(CACHE_NAME).then((cache) => {
+    cache.keys().then((keys) => {
+      keys.forEach((request) => {
+        if (request.url.includes(dingus)) {
+          cache.delete(request);
+        }
+      });
+      // Re-cache the directory
+      fetch(dingus).then((response) => {
+        if (response.ok) {
+          cache.put(dingus, response);
+        }
+      }).catch((error) => {
+        console.error('Failed to re-cache the goofy little dingus:', error);
+      });
+    });
+  });
+          
+  }
+});
