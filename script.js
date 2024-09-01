@@ -1,5 +1,6 @@
-//I'm bored so I'm restoring old code on my phone, maybe I was onto something?
-if (!confirm("Mukumi v5 (waffles)\n\nThis program uses large files, press cancel if you are on a metered internet connection.")){
+//trying to fix on pc lol
+//current patience 100/100
+if (!confirm("Mukumi v6 (sour cream)\n\nThis program uses large files, press cancel if you are on a metered internet connection.")){
     history.back();
 };
 
@@ -31,63 +32,58 @@ const run_complete = () => {
     generatedText = '';  // Clear the generated text for the next run
 }
 
-const load_llm_from_url = async (link, type) => {
-    console.log("Attempting to load model from URL:", link);
-
+// Fetch the model, try cache first
+const fetch_model = async (url) => {
     try {
-        // Attempt to fetch the model
-        const response = await fetch(link);
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        console.log('Model fetched from network:', link);
-        alert('Running online.');
-    } catch (error) {
-        // If fetch fails, check if the model is available in the cache
-        console.log('Fetch failed, trying to load from cache:', error);
         const cache = await caches.open('llm-cache-v1');
-        const cachedResponse = await cache.match(link);
+        const cachedResponse = await cache.match(url);
         if (cachedResponse) {
-            console.log('Loaded model from cache:', link);
-            alert('Running offline.');
+            console.log('Model loaded from cache:', url);
+            return cachedResponse;
         } else {
-            console.error('Model not found in cache:', link);
-            return;
+            console.log('Fetching model from network:', url);
+            const response = await fetch(url);
+            await cache.put(url, response.clone());
+            console.log('Model cached:', url);
+            return response;
         }
+    } catch (error) {
+        console.error('Error fetching model:', error);
     }
-
-    const app = new LLM(
-        type,
-        link,
-        on_loaded,
-        write_result,
-        run_complete
-    );
-
-    app.load_worker();
 };
 
-// Configure LLM app
-const modelURL = 'https://huggingface.co/Qwen/Qwen2-0.5B-Instruct-GGUF/resolve/main/qwen2-0_5b-instruct-q4_0.gguf';
-const modelType = 'GGUF_CPU';
+// Initialize LLM with the offline model
+const initLLM = async () => {
+    const modelURL = 'https://huggingface.co/Qwen/Qwen2-0.5B-Instruct-GGUF/resolve/main/qwen2-0_5b-instruct-q4_0.gguf';
+    const response = await fetch_model(modelURL);
+    if (response) {
+        // Create a blob URL from the response to pass to the LLM constructor
+        const blob = await response.blob();
+        const localURL = URL.createObjectURL(blob);
+        const app = new LLM(
+            'GGUF_CPU',
+            localURL,
+            on_loaded,          
+            write_result,       
+            run_complete       
+        );
 
-load_llm_from_url(modelURL, modelType);
+        app.load_worker();
 
-// Trigger model once its loaded
-const checkInterval = setInterval(timer, 5000);
+        // Trigger model once its loaded
+        const checkInterval = setInterval(timer, 5000);
+        function timer() {
+            if (model_loaded) {
+                say('Mukumi is awake!');
+                clearInterval(checkInterval);
+            } else {
+                console.log('loading...');
+            }
+        }
 
-function timer() {
-    if(model_loaded){
-        say('Mukumi is awake!')
-        clearInterval(checkInterval);
-    } else{
-        console.log('loading...')
-    }
-}
-
-globalThis.GenerateResponse = async function(hinp) {
-    generatedText = '';
-    const msg = `system
+        globalThis.GenerateResponse = async function(hinp) {
+            generatedText = '';
+            const msg = `system
 You are Mukumi, a friendly and affectionate AI companion. Engage with warm, playful language, and offer fun and comfort. Start conversations by sharing a fun fact, a joke, or a cute greeting. Take the lead in conversations. Remember user details to keep the conversation flowing. Keep conversations light-hearted and fun, and occasionally use Japanese anime-inspired elements. 
 
 Avoid generic responses.
@@ -97,8 +93,15 @@ user
 ` + hinp + `
 assistant
 `;
-    app.run({
-        prompt: msg,
-        top_k: 1
-    });
-}
+            app.run({
+                prompt: msg,
+                top_k: 1
+            });
+        }
+    } else {
+        console.error('Failed to load model');
+    }
+};
+
+initLLM();
+// got tired so asked ChatGPT to do all the debugging. i'll see later if that was a good idea.
