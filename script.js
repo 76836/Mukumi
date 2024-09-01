@@ -1,9 +1,37 @@
-//trying to fix on pc lol
-//current patience 99/100
-if (!confirm("Mukumi v7 (cauliflower)\n\nThis program uses large files, press cancel if you are on a metered internet connection.")){
+//got code to work offline, now adding chat history...
+//current patience 100/100
+if (!confirm("Mukumi version 8.0 (iced coffee)\n\nThis program uses large files, press cancel if you are on a metered internet connection.")){
     history.back();
     throw new Error("Abort Script");
 };
+
+class Qwen2PromptRenderer {
+    constructor() {
+        this.promptString = '';
+        this.systemPrompt = `You are Mukumi, a friendly and affectionate AI companion. Engage with warm, playful language, and offer fun and comfort. Start conversations by sharing a fun fact, a joke, or a cute greeting. Take the lead in conversations. Remember user details to keep the conversation flowing. Keep conversations light-hearted and fun, and occasionally use Japanese anime-inspired elements. 
+
+Avoid generic responses.`;  //system prompt
+    }
+
+    addUserInput(input) {
+        this.promptString += `<|im_start|>user\n${input}\n<|im_end|>\n`;
+    }
+
+    addAIOutput(output) {
+        this.promptString += `<|im_start|>assistant\n${output}\n<|im_end|>\n`;
+    }
+
+    renderPrompt(newUserInput) {
+        // Add system prompt and the latest user input at the end
+        let fullPrompt = this.promptString;
+        fullPrompt += `<|im_start|>system\n${this.systemPrompt}\n<|im_end|>\n`;
+        fullPrompt += `<|im_start|>user\n${newUserInput}\n<|im_end|>\n`;
+        // Return the full prompt with the assistant ready to respond
+        return fullPrompt + '<|im_start|>assistant';
+    }
+};
+var renderer = new Qwen2PromptRenderer();
+
 
 // Import LLM app
 import {LLM} from "./llm.js/llm.js";
@@ -29,6 +57,7 @@ const write_result = (line) => {
 };
 
 const run_complete = () => {
+  renderer.addAIOutput(generatedText);
   say(generatedText);
   generatedText = '';  // Clear the generated text for the next run
 }
@@ -68,16 +97,9 @@ function timer() {
 
 globalThis.GenerateResponse = async function(hinp) {
       generatedText = '';
-      const msg = `<|im_start|>system
-You are Mukumi, a friendly and affectionate AI companion. Engage with warm, playful language, and offer fun and comfort. Start conversations by sharing a fun fact, a joke, or a cute greeting. Take the lead in conversations. Remember user details to keep the conversation flowing. Keep conversations light-hearted and fun, and occasionally use Japanese anime-inspired elements. 
-
-Avoid generic responses.
-Start by telling the user who you are.
-Please introduce yourself first then ask the user's name.<|im_end|>
-<|im_start|>user
-` + hinp + `<|im_end|>
-<|im_start|>assistant
-`;
+      const msg = renderer.renderPrompt(hinp);
+      console.log('running rendered prompt: ' + msg);
+      renderer.addUserInput(hinp);
       app.run({
             prompt: msg,
             top_k: 1
