@@ -73,24 +73,27 @@
                 const inputElement = document.getElementById('input');
                 const command = inputElement.value.trim();
                 inputsay(command);
-                if (isValidURL(command)) {
-                    window.location.href = command;
-                    //Think I should just leave this in? Nobody would notice...
+                if (command == "/update") {
+                    
+if (navigator.onLine) {
+    say('System: Sent update message, reload to apply update.');
+    if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready.then((registration) => {
+    registration.active.postMessage({ action: 'updateCache' });
+  });
+};
+} else {
+    say('System: Internet is required to download updates.');
+};
+                
                 } else {
                     GenerateResponse(command);
                 }
             }
         }
-        function isValidURL(url) {
-            try {
-                new URL(url);
-                return true;
-            } catch (error) {
-                return false;
-            }
-        }
+        
         //say('Mukumi Chat v1.0 (very experimental). \nUsing Qwen2 0.5b, via LLM.js. \nBy 76836.\nThis chat is ephemeral.')
-        say('Mukumi v1.2 ephemeral\nWaking Mukumi up...');
+        say('Mukumi ephemeral, type "/update" to refresh offline cache.\nWaking Mukumi up...');
     </script>
 </body>
 </html>
