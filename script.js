@@ -1,6 +1,7 @@
 //now fixing chat history more...
 //current patience 90/100
-if (!confirm("Mukumi version 9.0 (good toast)\n\nThis program uses large files, press cancel if you are on a metered internet connection.")){
+//forgot to update version number last commit
+if (!confirm("Mukumi version 10.0 (chips and salsa)\n\nThis program uses large files, press cancel if you are on a metered internet connection.")){
     history.back();
     throw new Error("Abort Script");
 };
