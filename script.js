@@ -1,5 +1,5 @@
-//now fixing chat history...
-//current patience 100/100
+//now fixing chat history more...
+//current patience 90/100
 if (!confirm("Mukumi version 9.0 (good toast)\n\nThis program uses large files, press cancel if you are on a metered internet connection.")){
     history.back();
     throw new Error("Abort Script");
@@ -63,10 +63,10 @@ const on_loaded = () => {
     model_loaded = true; 
 }
 
-
+var typing = false;
 const write_result = (line) => {
-  if (line == `assistant`) {
-      generatedText = '';
+  if ((line == `assistant` || line == `assistant: `) && typing == false) {
+      typing = true;
       inputsay('Mukumi is typing...');
   } else {
   generatedText += line + "\n";  // Append generated line to the generatedText
@@ -74,6 +74,7 @@ const write_result = (line) => {
 };
 
 const run_complete = () => {
+  typing = false;
   generatedText = extractLatestAIResponse(generatedText);
   renderer.addAIOutput(generatedText);
   say(generatedText);
