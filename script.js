@@ -1,7 +1,7 @@
 //now fixing chat history more...
-//current patience 90/100
+//current patience 80/100
 //forgot to update version number last commit
-if (!confirm("Mukumi version 10.0 (chips and salsa)\n\nThis program uses large files, press cancel if you are on a metered internet connection.")){
+if (!confirm("Mukumi version 10.1 (chips and salsa)\n\nThis program uses large files, press cancel if you are on a metered internet connection.")){
     history.back();
     throw new Error("Abort Script");
 };
@@ -13,9 +13,9 @@ function extractLatestAIResponse(fullOutput) {
 
     // Iterate through the lines in reverse to find the last "assistant:"
     for (let i = lines.length - 1; i >= 0; i--) {
-        if (lines[i].startsWith('assistant: ')) {
+        if (lines[i].startsWith('assistant')) {
             // Extract the response after "assistant:"
-            assistantResponse = lines[i].replace('assistant: ', '').trim();
+            assistantResponse = lines[i].replace('assistant\n', '').trim();
             break;
         }
     }
