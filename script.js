@@ -1,8 +1,25 @@
-//got code to work offline, now adding chat history...
+//now fixing chat history...
 //current patience 100/100
-if (!confirm("Mukumi version 8.0 (iced coffee)\n\nThis program uses large files, press cancel if you are on a metered internet connection.")){
+if (!confirm("Mukumi version 9.0 (good toast)\n\nThis program uses large files, press cancel if you are on a metered internet connection.")){
     history.back();
     throw new Error("Abort Script");
+};
+
+function extractLatestAIResponse(fullOutput) {
+    // Split the output by lines
+    const lines = fullOutput.split('\n');
+    let assistantResponse = '';
+
+    // Iterate through the lines in reverse to find the last "assistant:"
+    for (let i = lines.length - 1; i >= 0; i--) {
+        if (lines[i].startsWith('assistant: ')) {
+            // Extract the response after "assistant:"
+            assistantResponse = lines[i].replace('assistant: ', '').trim();
+            break;
+        }
+    }
+
+    return assistantResponse;
 };
 
 class Qwen2PromptRenderer {
@@ -57,6 +74,7 @@ const write_result = (line) => {
 };
 
 const run_complete = () => {
+  generatedText = extractLatestAIResponse(generatedText);
   renderer.addAIOutput(generatedText);
   say(generatedText);
   generatedText = '';  // Clear the generated text for the next run
