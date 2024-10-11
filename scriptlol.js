@@ -115,7 +115,9 @@ function timer() {
         console.log('loading...')
     }
 }
-
+var grammar = `root ::= item+
+item ::= ([a-zA-Z]+ | " " | "," | "." | "!" | "?")+
+`;
 globalThis.GenerateResponse = async function(hinp) {
       generatedText = '';
       const msg = renderer.renderPrompt(hinp);
@@ -123,6 +125,7 @@ globalThis.GenerateResponse = async function(hinp) {
       renderer.addUserInput(hinp);
       app.run({
             prompt: msg,
+            grammar: grammar,
             top_k: 100,
             top_p: 0.95,
             temp: 1.2
