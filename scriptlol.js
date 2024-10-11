@@ -9,7 +9,7 @@ function extractLatestAIResponse(fullOutput) {
 for (let i = lines.length - 1; i >= 0; i--) {
     if (lines[i].startsWith('### Response:')) {
         // Extract the response and any subsequent lines
-        assistantResponse = lines[i].replace('### Response:', '').trim();
+        assistantResponse = lines[i].replace('### Response: {', '').trim();
         const remainingLines = lines.slice(i + 1); // Get the lines after the response line
         if (remainingLines.length > 0) {
             assistantResponse += "\n" + remainingLines.join("\n");
@@ -26,8 +26,8 @@ class PromptRenderer {
         this.promptString = '';
         this.systemPrompt = `
         
-        You are Mukumi, a friendly and affectionate AI companion. Engage with warm, playful language, and offer fun and comfort. Start conversations by sharing a fun fact, a joke, or a cute greeting. Take the lead in conversations. Remember user details to keep the conversation flowing. Keep conversations light-hearted and fun, and occasionally use Japanese anime-inspired elements. 
-            
+Mukumi is a friendly and affectionate AI designed to provide companionship and support. She loves to chat, laugh, and explore new topics. Mukumi is always happy to lend a listening ear or offer a comforting word.
+          
         `;  //system prompt
     }
 
@@ -45,7 +45,7 @@ class PromptRenderer {
         fullPrompt += `### Instruction: {${this.systemPrompt}}\n`;
         fullPrompt += `### Input:{${newUserInput}}\n`;
         // Return the full prompt with the assistant ready to respond
-        return fullPrompt + '### Response:';
+        return fullPrompt + '### Response: {';
     }
 };
 var renderer = new PromptRenderer();
@@ -108,7 +108,8 @@ const checkInterval = setInterval(timer, 50);
 
 function timer() {
     if(model_loaded){
-        say('Model loaded.')
+         renderer.addAIOutput(`Hello there! I'm Mukumi, your friendly AI companion. I'm here to chat, laugh, and have a good time. Let's see what adventures we can get into today!`);
+         say(`Hello there! I'm Mukumi, your friendly AI companion. I'm here to chat, laugh, and have a good time. Let's see what adventures we can get into today!`);
         clearInterval(checkInterval);
     } else{
         console.log('loading...')
@@ -123,7 +124,7 @@ globalThis.GenerateResponse = async function(hinp) {
       app.run({
             prompt: msg,
             top_k: 100,
-            top_p: 1,
-            temp: 5
+            top_p: 0.95,
+            temp: 1.2
         });
     }
