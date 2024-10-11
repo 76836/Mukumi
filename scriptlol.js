@@ -6,13 +6,17 @@ function extractLatestAIResponse(fullOutput) {
     let assistantResponse = '';
 
     // Iterate through the lines in reverse to find the last response
-    for (let i = lines.length - 1; i >= 0; i--) {
-        if (lines[i].startsWith('### Response:')) {
-            // Extract the response 
-            assistantResponse = lines[i].replace('### Response:', '').trim();
-            break;
+for (let i = lines.length - 1; i >= 0; i--) {
+    if (lines[i].startsWith('### Response:')) {
+        // Extract the response and any subsequent lines
+        assistantResponse = lines[i].replace('### Response:', '').trim();
+        const remainingLines = lines.slice(i + 1); // Get the lines after the response line
+        if (remainingLines.length > 0) {
+            assistantResponse += "\n" + remainingLines.join("\n");
         }
+        break;
     }
+}
 
     return assistantResponse;
 };
@@ -24,18 +28,18 @@ class PromptRenderer {
     }
 
     addUserInput(input) {
-        this.promptString += `### Input: {\n${input}}\n`;
+        this.promptString += `### Input: {${input}}\n`;
     }
 
     addAIOutput(output) {
-        this.promptString += `### Response: {\n${output}}\n`;
+        this.promptString += `### Response: {${output}}\n`;
     }
 
     renderPrompt(newUserInput) {
         // Add system prompt and the latest user input at the end
         let fullPrompt = this.promptString;
-        fullPrompt += `### Instruction: {\n${this.systemPrompt}}\n`;
-        fullPrompt += `### Input:\n${newUserInput}}\n`;
+        fullPrompt += `### Instruction: {${this.systemPrompt}}\n`;
+        fullPrompt += `### Input:{${newUserInput}}\n`;
         // Return the full prompt with the assistant ready to respond
         return fullPrompt + '### Response:';
     }
