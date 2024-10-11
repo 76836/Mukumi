@@ -88,7 +88,7 @@ const app = new LLM(
     'GGUF_CPU',
 
     // Model URL
-    'https://huggingface.co/QuantFactory/tinyllama-15M-alpaca-finetuned-GGUF/resolve/main/tinyllama-15M-alpaca-finetuned.Q8_0.gguf',
+    'https://huggingface.co/Felladrin/gguf-flan-t5-small/resolve/main/flan-t5-small.Q2_K.gguf',
 
     // Model Load callback function
     on_loaded,          
@@ -115,9 +115,9 @@ function timer() {
         console.log('loading...')
     }
 }
-var grammar = `root ::= item+
+/*var grammar = `root ::= item+
 item ::= ([a-zA-Z]+ | " " | "," | "." | "!" | "?")+
-`;
+`;*/
 globalThis.GenerateResponse = async function(hinp) {
       generatedText = '';
       const msg = renderer.renderPrompt(hinp);
@@ -125,7 +125,7 @@ globalThis.GenerateResponse = async function(hinp) {
       renderer.addUserInput(hinp);
       app.run({
             prompt: msg,
-            grammar: grammar,
+            //grammar: grammar,
             top_k: 100,
             top_p: 0.95,
             temp: 1.2
