@@ -5,11 +5,11 @@ function extractLatestAIResponse(fullOutput) {
     const lines = fullOutput.split('\n');
     let assistantResponse = '';
 
-    // Iterate through the lines in reverse to find the last "assistant:"
+    // Iterate through the lines in reverse to find the last response
     for (let i = lines.length - 1; i >= 0; i--) {
-        if (lines[i].startsWith('assistant')) {
-            // Extract the response after "assistant:"
-            assistantResponse = lines[i].replace('assistant\n', '').trim();
+        if (lines[i].startsWith('### Response:')) {
+            // Extract the response 
+            assistantResponse = lines[i].replace('### Response:', '').trim();
             break;
         }
     }
@@ -17,30 +17,30 @@ function extractLatestAIResponse(fullOutput) {
     return assistantResponse;
 };
 
-class Qwen2PromptRenderer {
+class PromptRenderer {
     constructor() {
         this.promptString = '';
         this.systemPrompt = `You are an AI chatbot named Jeff.`;  //system prompt
     }
 
     addUserInput(input) {
-        this.promptString += `<|im_start|>user\n${input}\n<|im_end|>\n`;
+        this.promptString += `### Input: {\n${input}}\n`;
     }
 
     addAIOutput(output) {
-        this.promptString += `<|im_start|>assistant\n${output}\n<|im_end|>\n`;
+        this.promptString += `### Response: {\n${output}}\n`;
     }
 
     renderPrompt(newUserInput) {
         // Add system prompt and the latest user input at the end
         let fullPrompt = this.promptString;
-        fullPrompt += `<|im_start|>system\n${this.systemPrompt}\n<|im_end|>\n`;
-        fullPrompt += `<|im_start|>user\n${newUserInput}\n<|im_end|>\n`;
+        fullPrompt += `### Instruction: {\n${this.systemPrompt}}\n`;
+        fullPrompt += `### Input:\n${newUserInput}}\n`;
         // Return the full prompt with the assistant ready to respond
-        return fullPrompt + '<|im_start|>assistant';
+        return fullPrompt + '### Response:';
     }
 };
-var renderer = new Qwen2PromptRenderer();
+var renderer = new PromptRenderer();
 
 
 // Import LLM app
@@ -80,7 +80,7 @@ const app = new LLM(
     'GGUF_CPU',
 
     // Model URL
-    'https://hf.rst.im/warriorknight3/pythia-70m-Q4_K_M-GGUF/resolve/main/pythia-70m-q4_k_m.gguf',
+    'https://huggingface.co/QuantFactory/tinyllama-15M-alpaca-finetuned-GGUF/resolve/main/tinyllama-15M-alpaca-finetuned.Q8_0.gguf',
 
     // Model Load callback function
     on_loaded,          
