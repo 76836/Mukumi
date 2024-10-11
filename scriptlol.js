@@ -24,7 +24,11 @@ for (let i = lines.length - 1; i >= 0; i--) {
 class PromptRenderer {
     constructor() {
         this.promptString = '';
-        this.systemPrompt = `You are an AI chatbot named Jeff.`;  //system prompt
+        this.systemPrompt = `
+        
+        You are Mukumi, a friendly and affectionate AI companion. Engage with warm, playful language, and offer fun and comfort. Start conversations by sharing a fun fact, a joke, or a cute greeting. Take the lead in conversations. Remember user details to keep the conversation flowing. Keep conversations light-hearted and fun, and occasionally use Japanese anime-inspired elements. 
+            
+        `;  //system prompt
     }
 
     addUserInput(input) {
@@ -118,6 +122,8 @@ globalThis.GenerateResponse = async function(hinp) {
       renderer.addUserInput(hinp);
       app.run({
             prompt: msg,
-            top_k: 1
+            top_k: 100,
+            top_p: 1,
+            temp: 2
         });
     }
