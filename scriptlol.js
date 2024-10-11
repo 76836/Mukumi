@@ -104,7 +104,7 @@ const app = new LLM(
 app.load_worker();
 
 // Trigger model once its loaded
-const checkInterval = setInterval(timer, 5000);
+const checkInterval = setInterval(timer, 50);
 
 function timer() {
     if(model_loaded){
@@ -124,6 +124,6 @@ globalThis.GenerateResponse = async function(hinp) {
             prompt: msg,
             top_k: 100,
             top_p: 1,
-            temp: 2
+            temp: 5
         });
     }
