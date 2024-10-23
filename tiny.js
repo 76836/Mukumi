@@ -1,17 +1,28 @@
 class TextAggregator {
     constructor() {
-        this.text = '';
+        this.fullText = '';
+        this.limitedText = '';
     }
     addInput(input) {
-        this.text += `${input}\n`;
+        this.fullText += `${input}`;
+        this.limitedText += `${input}`;
+        this.trimToLimit(10000);  // Adjust limit as needed
     }
     addOutput(output) {
-        this.text += `${output}\n`;
+        this.fullText += `${output}`;
+        this.limitedText += `${output}`;
+        this.trimToLimit(10000);  // Adjust limit as needed
     }
     trimToLimit(limit) {
-        while (this.text.length > limit) {
-            this.text = this.text.slice(this.text.indexOf('\n') + 1);
+        while (this.limitedText.length > limit) {
+            this.limitedText = this.limitedText.slice(this.limitedText.indexOf('.') + 1);
         }
+    }
+    getFullText() {
+        return this.fullText;
+    }
+    getLimitedText() {
+        return this.limitedText;
     }
 };
 
@@ -21,12 +32,12 @@ let generatedText = '';
 
 const onLoaded = () => { modelLoaded = true; }
 const writeResult = (line) => {
-    generatedText += line + "\n";
+    generatedText += line;
 };
 const runComplete = () => {
     generatedText = extractLatestAIResponse(generatedText);
     aggregator.addOutput(generatedText);
-    say(generatedText);
+    say(aggregator.getFullText());
     generatedText = '';
 };
 
@@ -36,7 +47,7 @@ const extractLatestAIResponse = (fullOutput) => {
     for (let i = lines.length - 1; i >= 0; i--) {
         if (lines[i].startsWith('### Response:')) {
             response = lines[i].replace('### Response:', '').trim();
-            response += '\n' + lines.slice(i + 1).join('\n');
+            response += lines.slice(i + 1).join('');
             break;
         }
     }
@@ -57,7 +68,6 @@ app.load_worker();
 
 const checkInterval = setInterval(() => {
     if (modelLoaded) {
-        aggregator.addOutput(`Hello! I'm Mukumi, your friendly AI companion. Let's have some fun today!`);
         say(`Loaded`);
         clearInterval(checkInterval);
     }
@@ -66,9 +76,8 @@ const checkInterval = setInterval(() => {
 globalThis.GenerateResponse = async function (input) {
     generatedText = '';
     aggregator.addInput(input);
-    aggregator.trimToLimit(100);
     app.run({
-        prompt: aggregator.text,
+        prompt: aggregator.getLimitedText(),
         top_k: 100,
         top_p: 0.95,
         temp: 1.2
