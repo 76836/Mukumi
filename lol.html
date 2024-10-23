@@ -65,7 +65,8 @@
             document.getElementById('input').value = '';
         }
         function say(text) {
-            document.getElementById('terminal').innerHTML += text + '\n';
+            document.getElementById('terminal').innerHTML = text + '\n';
+            //document.getElementById('terminal').innerHTML += text + '\n';
             document.getElementById('input').value = '';
         }
         function handleInput(event) {
