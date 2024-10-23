@@ -1,133 +1,76 @@
-
-
-function extractLatestAIResponse(fullOutput) {
-    // Split the output by lines
-    const lines = fullOutput.split('\n');
-    let assistantResponse = '';
-
-    // Iterate through the lines in reverse to find the last response
-for (let i = lines.length - 1; i >= 0; i--) {
-    if (lines[i].startsWith('### Response:')) {
-        // Extract the response and any subsequent lines
-        assistantResponse = lines[i].replace('### Response: {', '').trim();
-        const remainingLines = lines.slice(i + 1); // Get the lines after the response line
-        if (remainingLines.length > 0) {
-            assistantResponse += "\n" + remainingLines.join("\n");
-        }
-        break;
-    }
-}
-
-    return assistantResponse;
-};
-
-class PromptRenderer {
+class TextAggregator {
     constructor() {
-        this.promptString = '';
-        this.systemPrompt = `
-        
-Mukumi is a friendly and affectionate AI designed to provide companionship and support. She loves to chat, laugh, and explore new topics. Mukumi is always happy to lend a listening ear or offer a comforting word.
-          
-        `;  //system prompt
+        this.text = '';
     }
-
-    addUserInput(input) {
-        this.promptString += `### Input: {${input}}\n`;
+    addInput(input) {
+        this.text += `${input}\n`;
     }
-
-    addAIOutput(output) {
-        this.promptString += `### Response: {${output}}\n`;
+    addOutput(output) {
+        this.text += `${output}\n`;
     }
-
-    renderPrompt(newUserInput) {
-        // Add system prompt and the latest user input at the end
-        let fullPrompt = this.promptString;
-        fullPrompt += `### Instruction: {${this.systemPrompt}}\n`;
-        fullPrompt += `### Input:{${newUserInput}}\n`;
-        // Return the full prompt with the assistant ready to respond
-        return fullPrompt + '### Response: {';
+    trimToLimit(limit) {
+        while (this.text.length > limit) {
+            this.text = this.text.slice(this.text.indexOf('\n') + 1);
+        }
     }
 };
-var renderer = new PromptRenderer();
 
+let aggregator = new TextAggregator();
+let modelLoaded = false;
+let generatedText = '';
 
-// Import LLM app
-import {LLM} from "./llm.js/llm.js";
-
-// State variable to track model load status
-var model_loaded = false;
-
-let generatedText = '';  // Variable to store the generated text
-
-// Callback functions
-const on_loaded = () => { 
-    model_loaded = true; 
-}
-
-var typing = false;
-const write_result = (line) => {
-  if ((line == `assistant` || line == `assistant: `) && typing == false) {
-      typing = true;
-      inputsay('Thinking...');
-  } else {
-  generatedText += line + "\n";  // Append generated line to the generatedText
-  };
+const onLoaded = () => { modelLoaded = true; }
+const writeResult = (line) => {
+    generatedText += line + "\n";
+};
+const runComplete = () => {
+    generatedText = extractLatestAIResponse(generatedText);
+    aggregator.addOutput(generatedText);
+    say(generatedText);
+    generatedText = '';
 };
 
-const run_complete = () => {
-  typing = false;
-  generatedText = extractLatestAIResponse(generatedText);
-  renderer.addAIOutput(generatedText);
-  say(generatedText);
-  generatedText = '';  // Clear the generated text for the next run
-}
+const extractLatestAIResponse = (fullOutput) => {
+    const lines = fullOutput.split('\n');
+    let response = '';
+    for (let i = lines.length - 1; i >= 0; i--) {
+        if (lines[i].startsWith('### Response:')) {
+            response = lines[i].replace('### Response:', '').trim();
+            response += '\n' + lines.slice(i + 1).join('\n');
+            break;
+        }
+    }
+    return response;
+};
 
-// Configure LLM app
+import { LLM } from "./llm.js/llm.js";
+
 const app = new LLM(
-     // Type of Model
     'GGUF_CPU',
-
-    // Model URL
     'https://huggingface.co/raincandy-u/TinyStories-656K-Q8_0-GGUF/resolve/main/tinystories-656k-q8_0.gguf',
-
-    // Model Load callback function
-    on_loaded,          
-
-    // Model Result callback function
-    write_result,       
-
-     // On Model completion callback function
-    run_complete       
+    onLoaded,
+    writeResult,
+    runComplete
 );
 
-// Download & Load Model GGML bin file
 app.load_worker();
 
-// Trigger model once its loaded
-const checkInterval = setInterval(timer, 50);
-
-function timer() {
-    if(model_loaded){
-         renderer.addAIOutput(`Hello there! I'm Mukumi, your friendly AI companion. I'm here to chat, laugh, and have a good time. Let's see what adventures we can get into today!`);
-         say(`Loaded`);
+const checkInterval = setInterval(() => {
+    if (modelLoaded) {
+        aggregator.addOutput(`Hello! I'm Mukumi, your friendly AI companion. Let's have some fun today!`);
+        say(`Loaded`);
         clearInterval(checkInterval);
-    } else{
-        console.log('loading...')
     }
+}, 50);
+
+globalThis.GenerateResponse = async function (input) {
+    generatedText = '';
+    aggregator.addInput(input);
+    aggregator.trimToLimit(100);
+    app.run({
+        prompt: aggregator.text,
+        top_k: 100,
+        top_p: 0.95,
+        temp: 1.2
+    });
 }
-/*var grammar = `root ::= item+
-item ::= ([a-zA-Z]+ | " " | "," | "." | "!" | "?")+
-`;*/
-globalThis.GenerateResponse = async function(hinp) {
-      generatedText = '';
-      const msg = renderer.renderPrompt(hinp);
-      console.log('running rendered prompt: ' + msg);
-      renderer.addUserInput(hinp);
-      app.run({
-            prompt: msg,
-            //grammar: grammar,
-            top_k: 100,
-            top_p: 0.95,
-            temp: 1.2
-        });
-    }
