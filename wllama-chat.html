@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Wllama Chat</title>
+    <style>
+        body {
+            background-color: rgb(55, 55, 55);
+            color: rgb(222, 222, 222);
+            font-family: 'Courier New', Courier, monospace;
+            padding: 1em;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        #chat-container {
+            border: 1px solid #aaa;
+            border-radius: 5px;
+            height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            padding: 10px;
+        }
+        .message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .user-message {
+            background-color: rgb(70, 70, 70);
+            margin-left: 20%;
+        }
+        .assistant-message {
+            background-color: rgb(45, 45, 45);
+            margin-right: 20%;
+        }
+        #input-container {
+            display: flex;
+            gap: 10px;
+        }
+        #user-input {
+            flex-grow: 1;
+            padding: 10px;
+            background: rgb(45, 45, 45);
+            color: rgb(222, 222, 222);
+            border: 1px solid #aaa;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            background: rgb(45, 45, 45);
+            color: rgb(222, 222, 222);
+            border: 1px solid #aaa;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        #model-info {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="model-info">
+        <button id="btn_load_model">Load Model</button>
+        Model: <span id="model_name"></span>
+    </div>
+    <div id="chat-container"></div>
+    <div id="input-container">
+        <input type="text" id="user-input" placeholder="Type your message..." disabled>
+        <button id="btn_send" disabled>Send</button>
+        <button onclick="clearChat()" id="btn_clear">Clear</button>
+    </div>
+
+    <script type="module">
+        // Configuration
+        const CONFIG_PATHS = {
+            'single-thread/wllama.js': './esm/single-thread/wllama.js',
+            'single-thread/wllama.wasm': './esm/single-thread/wllama.wasm'
+        };
+        
+        const MODEL_URL = 'https://huggingface.co/ggml-org/models/resolve/main/tinyllamas/stories15M-q4_0.gguf';
+        const MODEL_SIZE = '19MB';
+
+        // Initialize elements
+        const chatContainer = document.getElementById('chat-container');
+        const userInput = document.getElementById('user-input');
+        const btnSend = document.getElementById('btn_send');
+        const btnLoadModel = document.getElementById('btn_load_model');
+        const btnClear = document.getElementById('btn_clear');
+        const modelName = document.getElementById('model_name');
+
+        let wllama = null;
+        
+        // Load chat history from localStorage
+        let chatHistory = JSON.parse(localStorage.getItem('chatHistory')) || [];
+        displayChatHistory();
+
+        // Initialize Wllama and load model
+        btnLoadModel.onclick = async () => {
+            btnLoadModel.disabled = true;
+            modelName.textContent = `Loading ${MODEL_SIZE} model...`;
+            
+            try {
+                const { Wllama } = await import('./esm/index.js');
+                wllama = new Wllama(CONFIG_PATHS);
+                await wllama.loadModelFromUrl(MODEL_URL);
+                
+                modelName.textContent = `Model loaded (${MODEL_SIZE})`;
+                userInput.disabled = false;
+                btnSend.disabled = false;
+            } catch (error) {
+                console.error('Error loading model:', error);
+                modelName.textContent = 'Error loading model';
+                btnLoadModel.disabled = false;
+            }
+        };
+
+        // Send message function
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message || !wllama) return;
+
+            // Disable input during processing
+            userInput.disabled = true;
+            btnSend.disabled = true;
+
+            // Add user message
+            chatHistory.push({ role: 'user', content: message });
+            displayChatHistory();
+            userInput.value = '';
+
+            // Create a new message element for the assistant's response
+            const assistantMessage = document.createElement('div');
+            assistantMessage.className = 'message assistant-message';
+            chatContainer.appendChild(assistantMessage);
+
+            try {
+                // Get AI response with streaming
+                let fullResponse = '';
+                await wllama.createCompletion(message, {
+                    nPredict: 100,
+                    sampling: {
+                        temp: 0.7,
+                        top_k: 40,
+                        top_p: 0.9,
+                    },
+                    onNewToken: (token, piece, currentText) => {
+                        fullResponse = currentText;
+                        assistantMessage.textContent = currentText;
+                        chatContainer.scrollTop = chatContainer.scrollHeight;
+                    },
+                });
+
+                // Save the complete response
+                chatHistory.push({ role: 'assistant', content: fullResponse });
+                localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
+            } catch (error) {
+                console.error('Error:', error);
+                assistantMessage.textContent = 'Error generating response';
+            }
+
+            // Re-enable input
+            userInput.disabled = false;
+            btnSend.disabled = false;
+            userInput.focus();
+        }
+
+        // Display chat history
+        function displayChatHistory() {
+            chatContainer.innerHTML = '';
+            chatHistory.forEach(message => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${message.role}-message`;
+                messageDiv.textContent = message.content;
+                chatContainer.appendChild(messageDiv);
+            });
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Clear chat
+        window.clearChat = function() {
+            chatHistory = [];
+            localStorage.removeItem('chatHistory');
+            displayChatHistory();
+        };
+
+        // Event listeners
+        btnSend.onclick = sendMessage;
+        userInput.onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        };
+    </script>
+</body>
+</html>
