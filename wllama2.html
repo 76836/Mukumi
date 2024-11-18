@@ -100,8 +100,8 @@
     <script type="module">
         // Configuration
         const CONFIG_PATHS = {
-            'single-thread/wllama.js': 'https://unpkg.com/wllama@1.2.0/esm/single-thread/wllama.js',
-            'single-thread/wllama.wasm': 'https://unpkg.com/wllama@1.2.0/esm/single-thread/wllama.wasm'
+            'single-thread/wllama.js': './esm/single-thread/wllama.js',
+            'single-thread/wllama.wasm': './esm/single-thread/wllama.wasm'
         };
         
         
@@ -152,7 +152,7 @@
             modelName.textContent = `Loading ${MODEL_SIZE} model...`;
             
             try {
-                const { Wllama } = await import('https://unpkg.com/wllama@1.2.0/esm/index.js');
+                const { Wllama } = await import('./esm/index.js');
                 wllama = new Wllama(CONFIG_PATHS);
                 await wllama.loadModelFromUrl(MODEL_URL);
                 
