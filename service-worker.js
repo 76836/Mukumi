@@ -30,7 +30,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event - serving cached content
+/* Fetch event - serving cached content
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request)
@@ -39,6 +39,23 @@ self.addEventListener('fetch', (event) => {
       })
   );
 });
+*/
+
+//doing an experiment.....
+self.addEventListener('fetch', (event) => {
+  event.respondWith((async () => {
+    const response = await fetch(event.request);
+    const headers = response.headers;
+    headers.append('Cross-Origin-Embedder-Policy', 'require-corp');
+    headers.append('Cross-Origin-Opener-Policy', 'same-origin');
+    return new Response(response.body, {
+      headers: headers
+    });
+  })());
+});
+
+
+
 
 // Update event - refresh every file besides the qwen2 model
 self.addEventListener('message', (event) => {
