@@ -42,7 +42,7 @@ self.addEventListener('fetch', (event) => {
 */
 
 //doing an experiment.....
-self.addEventListener('fetch', (event) => {
+self.addEventListener('fetch', (event) => { try {
   event.respondWith((async () => {
     const response = await fetch(event.request);
     const headers = response.headers;
@@ -52,6 +52,15 @@ self.addEventListener('fetch', (event) => {
       headers: headers
     });
   })());
+} catch (error) {
+event.respondWith(
+    caches.match(event.request)
+      .then((response) => {
+        return response || fetch(event.request);
+      })
+  );
+  alert('service-worker.js error!');
+}
 });
 
 
