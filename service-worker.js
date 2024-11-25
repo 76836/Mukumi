@@ -39,7 +39,7 @@ self.addEventListener('fetch', (event) => {
       })
   );
 });
-*/
+
 
 //doing an experiment.....
 self.addEventListener('fetch', (event) => { try {
@@ -62,6 +62,48 @@ event.respondWith(
   alert('service-worker.js error!');
 }
 });
+
+*/
+
+
+
+self.addEventListener('fetch', (event) => {
+  event.respondWith((async () => {
+    try {
+      const response = await fetch(event.request);
+
+      // Create a new Headers object and copy existing headers
+      const newHeaders = new Headers(response.headers);
+      newHeaders.set('Cross-Origin-Embedder-Policy', 'require-corp');
+      newHeaders.set('Cross-Origin-Opener-Policy', 'same-origin');
+
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: newHeaders,
+      });
+    } catch (error) {
+      console.error('Fetch failed; falling back to cache:', error);
+
+      // Fallback to cache or fetch the request
+      const cachedResponse = await caches.match(event.request);
+      if (cachedResponse) {
+        return cachedResponse;
+      } else {
+        console.warn('No cached response found, attempting network fetch...');
+        return fetch(event.request).catch((fetchError) => {
+          console.error('Network fetch failed:', fetchError);
+          return new Response('An error occurred.', {
+            status: 500,
+            statusText: 'Internal Server Error',
+          });
+        });
+      }
+    }
+  })());
+});
+
+
 
 
 
