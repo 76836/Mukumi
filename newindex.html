@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wllama Chat - Qwen2</title>
+    <link rel="manifest" href="./manifest.json">
+    <style>
+        body {
+            background-color: black;
+            color: rgb(222, 222, 222);
+            font-family: 'Courier New', Courier, monospace;
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
+            transition: opacity 1s ease-in-out;
+        }
+        #terminal-screen {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: flex-start;
+            font-size: 18px;
+            opacity: 1;
+            transition: opacity 1s ease-in-out;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        #terminal-output {
+            width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        #terminal-input {
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            border: none;
+            background: transparent;
+            color: rgb(222, 222, 222);
+            outline: none;
+        }
+        #loading-screen {
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+        }
+        #chat-container {
+            border: 1px solid #444;
+            border-radius: 15px;
+            height: calc(100vh - 60px);
+            overflow-y: auto;
+            margin-bottom: 10px;
+            padding: 10px;
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+            background-color: black;
+        }
+        .message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 15px;
+            white-space: pre-wrap;
+        }
+        .user-message {
+            background-color: #333;
+            margin-left: 20%;
+            align-self: flex-end;
+        }
+        .assistant-message {
+            background-color: #222;
+            margin-right: 20%;
+            align-self: flex-start;
+        }
+        .system-message {
+            background-color: #111;
+            font-style: italic;
+            opacity: 0.8;
+        }
+        #input-container {
+            display: none;
+            position: fixed;
+            bottom: 10px;
+            width: calc(100% - 20px);
+            padding: 0 10px;
+            box-sizing: border-box;
+            background: black;
+        }
+        #user-input {
+            flex-grow: 1;
+            padding: 10px;
+            background: #333;
+            color: rgb(222, 222, 222);
+            border: 1px solid #444;
+            border-radius: 15px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #333;
+            color: rgb(222, 222, 222);
+            border: 1px solid #444;
+            border-radius: 15px;
+            cursor: pointer;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        #btn_clear {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: transparent;
+            color: #888;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="terminal-screen">
+        <div id="terminal-output">
+            <div>Welcome to Wllama Chat - Qwen2. Type a blank command or swipe up to start the chat.</div>
+        </div>
+        <div id="terminal-input-container">
+            <span id="terminal-prompt">></span>
+            <input type="text" id="terminal-input" placeholder="Type a command..." style="width: calc(100% - 20px); margin: 0; padding: 0; border: none; background: transparent; color: rgb(222, 222, 222); outline: none;">
+        </div>
+    </div>
+    <div id="loading-screen">
+        <div>Loading Model...</div>
+    </div>
+    <div id="chat-container"></div>
+    <div id="input-container">
+        <input type="text" id="user-input" placeholder="Type your message..." disabled>
+        <button id="btn_send" disabled>Send</button>
+        <button id="btn_clear">Clear</button>
+    </div>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./service-worker.js')
+                .then((registration) => {
+                    console.log('Service Worker registered with scope:', registration.scope);
+                }).catch((error) => {
+                    console.log('Service Worker registration failed:', error);
+                });
+        }
+
+        // Configuration
+        const CONFIG_PATHS = {
+            'single-thread/wllama.js': './esm/single-thread/wllama.js',
+            'single-thread/wllama.wasm': './esm/single-thread/wllama.wasm',
+            'multi-thread/wllama.js': './esm/multi-thread/wllama.js',
+            'multi-thread/wllama.wasm': './esm/multi-thread/wllama.wasm',
+            'multi-thread/wllama.worker.mjs': './esm/multi-thread/wllama.worker.mjs'
+        };
+
+        const MODEL_URL = 'https://huggingface.co/andybanana/qwen_rp_0.5b/resolve/main/model_q4_k_m.gguf';
+        const MODEL_SIZE = '398MB';
+
+        // Initialize elements
+        const chatContainer = document.getElementById('chat-container');
+        const userInput = document.getElementById('user-input');
+        const btnSend = document.getElementById('btn_send');
+        const terminalScreen = document.getElementById('terminal-screen');
+        const loadingScreen = document.getElementById('loading-screen');
+        const terminalInput = document.getElementById('terminal-input');
+        const terminalOutput = document.getElementById('terminal-output');
+        const terminalPrompt = document.getElementById('terminal-prompt');
+        const terminalInputContainer = document.getElementById('terminal-input-container');
+        const inputContainer = document.getElementById('input-container');
+        const btnClear = document.getElementById('btn_clear');
+
+        let wllama = null;
+
+        // Load chat history from localStorage
+        let chatHistory = JSON.parse(localStorage.getItem('chatHistory')) || [];
+        if (!chatHistory.length) {
+            // Initialize with system message if empty
+            chatHistory.push({
+                role: 'system',
+                content: 'You are a helpful AI assistant.'
+            });
+        }
+
+        // Format chat history for the model
+        function formatChatPrompt(messages) {
+            return messages.map(msg => {
+                if (msg.role === 'system') {
+                    return `system\n${msg.content}\n`;
+                } else if (msg.role === 'user') {
+                    return `user\n${msg.content}\n`;
+                } else if (msg.role === 'assistant') {
+                    return `assistant\n${msg.content}\n`;
+                }
+                return '';
+            }).join('') + 'assistant\n';
+        }
+
+        // Initialize Wllama and load model
+        async function loadModel() {
+            terminalScreen.style.opacity = 0;
+            loadingScreen.style.opacity = 1;
+
+            try {
+                const { Wllama } = await import('./esm/index.js');
+                wllama = new Wllama(CONFIG_PATHS);
+                await wllama.loadModelFromUrl(MODEL_URL);
+
+                loadingScreen.style.opacity = 0;
+                chatContainer.style.opacity = 1;
+                userInput.disabled = false;
+                btnSend.disabled = false;
+                terminalScreen.style.display = 'none';
+                inputContainer.style.display = 'flex';
+            } catch (error) {
+                console.error('Error loading model:', error);
+                loadingScreen.style.opacity = 0;
+                terminalScreen.style.opacity = 1;
+                terminalOutput.innerHTML += `<div style="color: red;">Error loading model. Please try again.</div>`;
+            }
+        }
+
+        // Display chat history
+        function displayChatHistory() {
+            chatContainer.innerHTML = '';
+            chatHistory.forEach(message => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${message.role}-message`;
+                messageDiv.textContent = message.content;
+                chatContainer.appendChild(messageDiv);
+            });
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Clear chat
+        function clearChat() {
+            // Preserve system prompt when clearing
+            const systemMsg = chatHistory[0]?.role === 'system' ? chatHistory[0] : {
+                role: 'system',
+                content: 'You are a helpful AI assistant.'
+            };
+            chatHistory = [systemMsg];
+            localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
+            displayChatHistory();
+        }
+
+        // Send message function
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message || !wllama) return;
+
+            // Disable input during processing
+            userInput.disabled = true;
+            btnSend.disabled = true;
+
+            // Add user message
+            chatHistory.push({ role: 'user', content: message });
+            displayChatHistory();
+            userInput.value = '';
+
+            // Create a new message element for the assistant's response
+            const assistantMessage = document.createElement('div');
+            assistantMessage.className = 'message assistant-message';
+            chatContainer.appendChild(assistantMessage);
+
+            try {
+                // Format the entire conversation history
+                const prompt = formatChatPrompt(chatHistory);
+                console.log('Formatted prompt:', prompt); // For debugging
+
+                // Get AI response with streaming
+                let fullResponse = '';
+                await wllama.createCompletion(prompt, {
+                    nPredict: 512,
+                    sampling: {
+                        temp: 0.7,
+                        top_k: 40,
+                        top_p: 0.9,
+                    },
+                    stopPrompts: ['\n', 'user\n'],
+                    onNewToken: (token, piece, currentText) => {
+                        fullResponse = currentText;
+                        assistantMessage.textContent = currentText;
+                        chatContainer.scrollTop = chatContainer.scrollHeight;
+                    },
+                });
+
+                // Save the complete response
+                chatHistory.push({ role: 'assistant', content: fullResponse });
+                localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
+            } catch (error) {
+                console.error('Error:', error);
+                assistantMessage.textContent = 'Error generating response';
+            }
+
+            // Re-enable input
+            userInput.disabled = false;
+            btnSend.disabled = false;
+            userInput.focus();
+        }
+
+        // Event listeners for terminal screen and input
+        terminalInput.onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                const command = terminalInput.value.trim();
+                if (command === '') {
+                    loadModel();
+                } else {
+                    terminalOutput.innerHTML += `<div>${terminalPrompt.textContent} ${command}</div>`;
+                }
+                terminalInput.value = '';
+            }
+        };
+
+        // Swipe up gesture detection
+        let startY = 0;
+        let endY = 0;
+
+        terminalScreen.addEventListener('touchstart', (e) => {
+            startY = e.touches[0].clientY;
+        });
+
+        terminalScreen.addEventListener('touchend', (e) => {
+            endY = e.changedTouches[0].clientY;
+            if (startY - endY > 50) { // Swipe up detected
+                loadModel();
+            }
+        });
+
+        // Event listeners for chat interface
+        btnSend.onclick = sendMessage;
+        userInput.onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        };
+
+        // Clear button functionality
+        btnClear.onclick = clearChat;
+
+        // Initial display of chat history
+        displayChatHistory();
+    </script>
+</body>
+</html>
