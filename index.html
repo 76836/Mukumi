@@ -225,6 +225,17 @@
 
         // Handle input
         terminalInput.addEventListener('click', () => terminalInput.focus());
+        let startY = 0;
+        let endY = 0;
+        terminalScreen.addEventListener('touchstart', (e) => {
+            startY = e.touches[0].clientY;
+        });
+        terminalScreen.addEventListener('touchend', (e) => {
+            endY = e.changedTouches[0].clientY;
+            if (startY - endY > 50) { // Swipe up detected
+                loadModel();
+            }
+        });
         terminalInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && terminalInput.value.trim() === '') {
                 loadModel();
@@ -240,116 +251,117 @@
             'multi-thread/wllama.worker.mjs': './esm/multi-thread/wllama.worker.mjs'
         };
         
+        //const MODEL_URL = 'https://huggingface.co/hugging-quants/Llama-3.2-1B-Instruct-Q4_K_M-GGUF/resolve/main/llama-3.2-1b-instruct-q4_k_m.gguf';
         const MODEL_URL = 'https://huggingface.co/QuantFactory/Llama-3.2-1B-GGUF/resolve/main/Llama-3.2-1B.Q4_K_M.gguf';
         const MODEL_SIZE = '808MB';
 
-        // Load chat history from localStorage
-        let chatHistory = JSON.parse(localStorage.getItem('chatHistory')) || [];
-        if (!chatHistory.length) {
-            // Initialize with system message if empty
-            chatHistory.push({
-                role: 'system',
-                content: `You are Mukumi, a friendly and affectionate AI companion. Engage with warm, playful language, and offer fun and comfort. Start conversations by sharing a fun fact, a joke, or a cute greeting. Take the lead in conversations. Remember user details to keep the conversation flowing. Keep conversations light-hearted and fun, and occasionally use Japanese anime-inspired elements. 
+   // Load chat history from localStorage
+let chatHistory = JSON.parse(localStorage.getItem('chatHistory')) || [];
+if (!chatHistory.length) {
+    // Initialize with system message if empty
+    chatHistory.push({
+        role: 'system',
+        content: `You are Mukumi, a friendly and affectionate AI companion. Engage with warm, playful language, and offer fun and comfort. Start conversations by sharing a fun fact, a joke, or a cute greeting. Take the lead in conversations. Remember user details to keep the conversation flowing. Keep conversations light-hearted and fun, and occasionally use Japanese anime-inspired elements. 
 
 Avoid generic responses.`
-            });
+    });
+}
+displayChatHistory();
+
+// Format chat history for the model using ChatML
+function formatChatPrompt(messages) {
+    return messages.map(msg => {
+        if (msg.role === 'system') {
+            return `<|system|>\n${msg.content}\n<|endoftext|>`;
+        } else if (msg.role === 'user') {
+            return `<|user|>\n${msg.content}\n<|endoftext|>`;
+        } else if (msg.role === 'assistant') {
+            return `<|assistant|>\n${msg.content}\n<|endoftext|>`;
         }
-        displayChatHistory();
+        return '';
+    }).join('');
+}
 
-        // Format chat history for the model
-        function formatChatPrompt(messages) {
-            return messages.map(msg => {
-                if (msg.role === 'system') {
-                    return 'system\n' + msg.content + '\n';
-                } else if (msg.role === 'user') {
-                    return 'user\n' + msg.content + '\n';
-                } else if (msg.role === 'assistant') {
-                    return 'assistant\n' + msg.content + '\n';
-                }
-                return '';
-            }).join('') + 'assistant\n';
-        }
+// Send message function
+async function sendMessage() {
+    const message = userInput.value.trim();
+    if (!message || !wllama) return;
 
-        // Send message function
-        async function sendMessage() {
-            const message = userInput.value.trim();
-            if (!message || !wllama) return;
+    // Disable input during processing
+    userInput.disabled = true;
+    btnSend.disabled = true;
 
-            // Disable input during processing
-            userInput.disabled = true;
-            btnSend.disabled = true;
+    // Add user message
+    chatHistory.push({ role: 'user', content: message });
+    displayChatHistory();
+    userInput.value = '';
 
-            // Add user message
-            chatHistory.push({ role: 'user', content: message });
-            displayChatHistory();
-            userInput.value = '';
+    // Create a new message element for the assistant's response
+    const assistantMessage = document.createElement('div');
+    assistantMessage.className = 'message assistant-message';
+    chatContainer.appendChild(assistantMessage);
 
-            // Create a new message element for the assistant's response
-            const assistantMessage = document.createElement('div');
-            assistantMessage.className = 'message assistant-message';
-            chatContainer.appendChild(assistantMessage);
+    try {
+        // Format the entire conversation history
+        const prompt = formatChatPrompt(chatHistory);
+        console.log('Formatted prompt:', prompt); // For debugging
 
-            try {
-                // Format the entire conversation history
-                const prompt = formatChatPrompt(chatHistory);
-                console.log('Formatted prompt:', prompt); // For debugging
+        // Get AI response with streaming
+        let fullResponse = '';
+        await wllama.createCompletion(prompt, {
+            nPredict: 2048,
+            sampling: {
+                temp: 0.7,
+                top_k: 40,
+                top_p: 0.9,
+            },
+            stopPrompts: ['<|system|>', '<|user|>', '<|endoftext|>'],
+            onNewToken: (token, piece, currentText) => {
+                fullResponse = currentText;
+                assistantMessage.textContent = currentText;
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            },
+        });
 
-                // Get AI response with streaming
-                let fullResponse = '';
-                await wllama.createCompletion(prompt, {
-                    nPredict: 2048,
-                    sampling: {
-                        temp: 0.7,
-                        top_k: 40,
-                        top_p: 0.9,
-                    },
-                    stopPrompts: ['\n', 'system'],
-                    onNewToken: (token, piece, currentText) => {
-                        fullResponse = currentText;
-                        assistantMessage.textContent = currentText;
-                        chatContainer.scrollTop = chatContainer.scrollHeight;
-                    },
-                });
+        // Save the complete response
+        chatHistory.push({ role: 'assistant', content: fullResponse });
+        localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
+    } catch (error) {
+        console.error('Error:', error);
+        assistantMessage.textContent = 'Error generating response';
+    }
 
-                // Save the complete response
-                chatHistory.push({ role: 'assistant', content: fullResponse });
-                localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
-            } catch (error) {
-                console.error('Error:', error);
-                assistantMessage.textContent = 'Error generating response';
-            }
+    // Re-enable input
+    userInput.disabled = false;
+    btnSend.disabled = false;
+    userInput.focus();
+}
 
-            // Re-enable input
-            userInput.disabled = false;
-            btnSend.disabled = false;
-            userInput.focus();
-        }
+// Display chat history
+function displayChatHistory() {
+    chatContainer.innerHTML = '';
+    chatHistory.forEach(message => {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message ' + message.role + '-message';
+        messageDiv.textContent = message.content;
+        chatContainer.appendChild(messageDiv);
+    });
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+}
 
-        // Display chat history
-        function displayChatHistory() {
-            chatContainer.innerHTML = '';
-            chatHistory.forEach(message => {
-                const messageDiv = document.createElement('div');
-                messageDiv.className = 'message ' + message.role + '-message';
-                messageDiv.textContent = message.content;
-                chatContainer.appendChild(messageDiv);
-            });
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
-
-        // Clear chat
-        function clearChat() {
-            // Preserve system prompt when clearing
-            const systemMsg = chatHistory[0]?.role === 'system' ? chatHistory[0] : {
-                role: 'system',
-                content: `You are Mukumi, a friendly and affectionate AI companion. Engage with warm, playful language, and offer fun and comfort. Start conversations by sharing a fun fact, a joke, or a cute greeting. Take the lead in conversations. Remember user details to keep the conversation flowing. Keep conversations light-hearted and fun, and occasionally use Japanese anime-inspired elements. 
+// Clear chat
+function clearChat() {
+    // Preserve system prompt when clearing
+    const systemMsg = chatHistory[0]?.role === 'system' ? chatHistory[0] : {
+        role: 'system',
+        content: `You are Mukumi, a friendly and affectionate AI companion. Engage with warm, playful language, and offer fun and comfort. Start conversations by sharing a fun fact, a joke, or a cute greeting. Take the lead in conversations. Remember user details to keep the conversation flowing. Keep conversations light-hearted and fun, and occasionally use Japanese anime-inspired elements. 
 
 Avoid generic responses.`
-            };
-            chatHistory = [systemMsg];
-            localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
-            displayChatHistory();
-        }
+    };
+    chatHistory = [systemMsg];
+    localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
+    displayChatHistory();
+}
 
         // Event listeners
         btnSend.onclick = sendMessage;
