@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mukumi</title>
+    <link rel="manifest" href="./manifest.json">
+    <style>
+        body {
+            background-color: black;
+            color: rgb(222, 222, 222);
+            font-family: 'Courier New', Courier, monospace;
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
+            transition: opacity 1s ease-in-out;
+        }
+        #terminal-screen {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: flex-start;
+            font-size: 18px;
+            padding: 10px;
+            box-sizing: border-box;
+            position: relative;
+        }
+        #terminal-output {
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        #terminal-input-container {
+            width: 100%;
+        }
+        #terminal-input {
+            width: calc(100% - 20px);
+            border: none;
+            background: transparent;
+            color: rgb(222, 222, 222);
+            outline: none;
+        }
+        #loading-screen {
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+        }
+        #chat-container {
+            margin-top:35px;
+            border: 0px solid #444;
+            border-radius: 15px;
+            height: calc(100vh - 95px);
+            overflow-y: scroll;
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: black;
+        }
+        .message {
+            margin: 5px 0;
+            border: 2px solid #fff;
+            padding: 5px 10px;
+            background-color:black;
+            border-radius: 10px;
+            white-space: pre-wrap;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        .user-message {
+            background-color: #000;
+            border: 2px solid #fff;
+            margin-left: 20%;
+            align-self: flex-end;
+        }
+        .assistant-message {
+            background-color: #000;
+            border: 2px solid #fff;
+            margin-right: 20%;
+            align-self: flex-start;
+        }
+        .system-message {
+            background-color: #111;
+            font-style: italic;
+            opacity: 0.8;
+            visibility:hidden;
+        }
+        #input-container {
+            display: none;
+            position: fixed;
+            bottom: 10px;
+            width: calc(100% - 10px);
+            padding: 0 10px;
+            box-sizing: border-box;
+            background: black;
+        }
+        #user-input {
+            flex-grow: 1;
+            padding: 10px;
+            background-color: #000;
+            border: 2px solid #fff;
+            color: rgb(222, 222, 222);
+            border-radius: 20px;
+        }
+        button {
+            margin-left:10px;
+            padding: 10px 20px;
+            color: rgb(222, 222, 222);
+            background-color: #000;
+            border: 2px solid #fff;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        #btn_clear {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: transparent;
+            color: #888;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #status-indicator {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background-color: red;
+        }
+    </style>
+</head>
+<body>
+    <div id="terminal-screen">
+        <div id="terminal-output">
+            <div>Experemental release 0x00001<br><br>Type a blank command or swipe up to start the chat.</div>
+        </div>
+        <div id="terminal-input-container">
+            <span id="terminal-prompt">></span>
+            <input type="text" id="terminal-input" placeholder="Type a command...">
+        </div>
+    </div>
+    <div id="loading-screen" style="display: none;">
+        <div>Waking Mukumi up...</div>
+    </div>
+    <div id="chat-container" style="display: none;"></div>
+    <div id="input-container">
+        <input type="text" id="user-input" placeholder="Type your message..." disabled>
+        <button id="btn_send" disabled>Send</button>
+        <button id="btn_clear">hard reset</button>
+    </div>
+    <div id="status-indicator"></div>
+
+<script type="module">
+import { Wllama } from './esm/index.js';
+
+export class WllamaChatAI {
+    constructor(config) {
+        this.CONFIG_PATHS = {
+            'single-thread/wllama.wasm': './esm/single-thread/wllama.wasm',
+            'multi-thread/wllama.wasm': './esm/multi-thread/wllama.wasm'
+        };
+        this.MODEL_URL = config?.modelUrl || 'https://huggingface.co/hugging-quants/Llama-3.2-1B-Instruct-Q4_K_M-GGUF/resolve/main/llama-3.2-1b-instruct-q4_k_m.gguf';
+        this.wllama = null;
+        this.chatHistory = JSON.parse(localStorage.getItem('chatHistory')) || [];
+        
+        if (!this.chatHistory.length) {
+            this.chatHistory.push({
+                role: 'system',
+                content: `You are Mukumi, a friendly and affectionate AI companion. Engage with warm, playful language, and offer fun and comfort. Start conversations by sharing a fun fact, a joke, or a cute greeting. Take the lead in conversations. Remember user details to keep the conversation flowing. Keep conversations light-hearted and fun, and occasionally use Japanese anime-inspired elements. 
+
+Avoid generic responses.`
+            });
+        }
+    }
+
+    formatChatPrompt(messages) {
+        return messages.map(msg => {
+            if (msg.role === 'system') {
+                return 'system\n' + msg.content + '\n';
+            } else if (msg.role === 'user') {
+                return 'user\n' + msg.content + '\n';
+            } else if (msg.role === 'assistant') {
+                return 'assistant\n' + msg.content + '\n';
+            }
+            return '';
+        }).join('') + 'assistant\n';
+    }
+
+    async loadModel() {
+        try {
+            this.wllama = new Wllama(this.CONFIG_PATHS);
+            await this.wllama.loadModelFromUrl(this.MODEL_URL);
+            return true;
+        } catch (error) {
+            console.error('Error loading model:', error);
+            return false;
+        }
+    }
+
+    async sendMessage(message) {
+        if (!message || !this.wllama) return null;
+
+        // Add user message to chat history
+        this.chatHistory.push({ role: 'user', content: message });
+        
+        try {
+            // Format the entire conversation history
+            const prompt = this.formatChatPrompt(this.chatHistory);
+            
+            // Prepare response
+            let fullResponse = '';
+            await this.wllama.createCompletion(prompt, {
+                nPredict: 2048,
+                sampling: {
+                    temp: 0.7,
+                    top_k: 40,
+                    top_p: 0.9,
+                },
+                stopPrompts: ['\n', 'system'],
+                onNewToken: (token, piece, currentText) => {
+                    fullResponse = currentText;
+                },
+            });
+
+            // Save the complete response
+            this.chatHistory.push({ role: 'assistant', content: fullResponse });
+            localStorage.setItem('chatHistory', JSON.stringify(this.chatHistory));
+
+            return fullResponse;
+        } catch (error) {
+            console.error('Error:', error);
+            return 'Error generating response';
+        }
+    }
+
+    getChatHistory() {
+        return this.chatHistory;
+    }
+
+    clearChatHistory() {
+        this.chatHistory = [];
+        localStorage.removeItem('chatHistory');
+    }
+}
+</script>
+
+
+    
+<script>
+        // Service Worker registration
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./service-worker.js')
+                .then((registration) => {
+                    console.log('Service Worker registered with scope:', registration.scope);
+                }).catch((error) => {
+                    console.log('Service Worker registration failed:', error);
+                });
+        }
+</script>
+    <script>
+        // Elements
+        const terminalScreen = document.getElementById('terminal-screen');
+        const terminalInput = document.getElementById('terminal-input');
+        const loadingScreen = document.getElementById('loading-screen');
+        const chatContainer = document.getElementById('chat-container');
+        const inputContainer = document.getElementById('input-container');
+        const statusIndicator = document.getElementById('status-indicator');
+        const userInput = document.getElementById('user-input');
+        const btnSend = document.getElementById('btn_send');
+        const btnClear = document.getElementById('btn_clear');
+
+        let wllama = null;
+
+        // Show/hide screens
+        function showTerminal() {
+            terminalScreen.style.display = 'flex';
+            loadingScreen.style.display = 'none';
+            chatContainer.style.display = 'none';
+            inputContainer.style.display = 'none';
+        }
+
+        function showLoading() {
+            terminalScreen.style.display = 'none';
+            loadingScreen.style.display = 'flex';
+            chatContainer.style.display = 'none';
+            inputContainer.style.display = 'none';
+        }
+
+        function showChat() {
+            terminalScreen.style.display = 'none';
+            loadingScreen.style.display = 'none';
+            chatContainer.style.display = 'block';
+            inputContainer.style.display = 'flex';
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        (function() {
+    // Import the Wllama module
+    let WllamaChatAI;
+    
+    // Dynamic import to make it compatible with non-module environments
+    async function importWllamaChatAI() {
+        const module = await import('./wllama-chat-ai.js');
+        WllamaChatAI = module.WllamaChatAI;
+    }
+
+    // Global Wllama instance
+    let mukumiAI = null;
+
+    // Load model function
+    function loadModel() {
+        showLoading();
+        
+        // Ensure module is imported first
+        importWllamaChatAI().then(() => {
+            mukumiAI = new WllamaChatAI();
+            mukumiAI.loadModel().then(success => {
+                if (success) {
+                    statusIndicator.style.backgroundColor = 'white';
+                    showChat();
+                    userInput.disabled = false;
+                    btnSend.disabled = false;
+                    userInput.focus();
+                } else {
+                    statusIndicator.style.backgroundColor = 'red';
+                    showTerminal();
+                }
+            }).catch(error => {
+                console.error('Model loading error:', error);
+                statusIndicator.style.backgroundColor = 'red';
+                showTerminal();
+            });
+        });
+    }
+
+    // Send message function
+    function sendMessage() {
+        const message = userInput.value.trim();
+        if (!message || !mukumiAI) return;
+
+        // Disable input during processing
+        userInput.disabled = true;
+        btnSend.disabled = true;
+
+        // Add user message
+        displayChatHistory();
+        userInput.value = '';
+
+        // Create a new message element for the assistant's response
+        const assistantMessage = document.createElement('div');
+        assistantMessage.className = 'message assistant-message';
+        chatContainer.appendChild(assistantMessage);
+
+        // Send message
+        mukumiAI.sendMessage(message).then(fullResponse => {
+            assistantMessage.textContent = fullResponse;
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            // Re-enable input
+            userInput.disabled = false;
+            btnSend.disabled = false;
+            userInput.focus();
+        }).catch(error => {
+            console.error('Error:', error);
+            assistantMessage.textContent = 'Error generating response';
+            
+            // Re-enable input
+            userInput.disabled = false;
+            btnSend.disabled = false;
+            userInput.focus();
+        });
+    }
+
+    // Expose functions globally
+    window.loadModel = loadModel;
+    window.sendMessage = sendMessage;
+
+    // Handle terminal input
+    document.addEventListener('DOMContentLoaded', () => {
+        const terminalInput = document.getElementById('terminalInput');
+        if (terminalInput) {
+            terminalInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && terminalInput.value.trim() === '') {
+                    loadModel();
+                }
+            });
+        }
+    });
+})();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+        // Display chat history
+        function displayChatHistory() {
+            chatContainer.innerHTML = '';
+            chatHistory.forEach(message => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message ' + message.role + '-message';
+                messageDiv.textContent = message.content;
+                chatContainer.appendChild(messageDiv);
+            });
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Clear chat
+        function clearChat() {
+            // Preserve system prompt when clearing
+            const systemMsg = chatHistory[0]?.role === 'system' ? chatHistory[0] : {
+                role: 'system',
+                content: `You are Mukumi, a friendly and affectionate AI companion. Engage with warm, playful language, and offer fun and comfort. Start conversations by sharing a fun fact, a joke, or a cute greeting. Take the lead in conversations. Remember user details to keep the conversation flowing. Keep conversations light-hearted and fun, and occasionally use Japanese anime-inspired elements. 
+
+Avoid generic responses.`
+            };
+            chatHistory = [systemMsg];
+            localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
+            displayChatHistory();
+        }
+
+        // Event listeners
+        btnSend.onclick = sendMessage;
+        let startY = 0;
+        let endY = 0;
+        terminalScreen.addEventListener('touchstart', (e) => {
+            startY = e.touches[0].clientY;
+        });
+        terminalScreen.addEventListener('touchend', (e) => {
+            endY = e.changedTouches[0].clientY;
+            if (startY - endY > 50) { // Swipe up detected
+                loadModel();
+            }
+        });
+        userInput.onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        };
+        btnClear.onclick = clearChat;
+
+        // Initialize
+        showTerminal();
+    </script>
+</body>
+</html>
